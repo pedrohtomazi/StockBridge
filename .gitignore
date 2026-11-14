@@ -1,0 +1,7 @@
+target/
+# Dados de cada instalação (banco, chaves, certificados, backups): nunca vão para o Git
+dados/
+dados-*/
+*.db
+*.db-wal
+*.db-shm

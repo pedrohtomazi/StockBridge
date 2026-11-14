@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockBridge - Dashboard</title>
+
+    <!-- Chart.js (versão fixa) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <!-- Fallback offline: se a CDN falhar, tenta vendor/chart.umd.min.js (veja vendor/LEIAME.txt) -->
+    <script>window.Chart || document.write('<script src="vendor/chart.umd.min.js"><\/script>');</script>
+
+    <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+    <style>
+        [hidden] { display: none !important; }
+        body { font-family: Arial, sans-serif; margin: 30px; background: #f4f6f8; color: #1e293b; }
+        h1 { margin-bottom: 5px; }
+        .subtitulo { color: #64748b; margin-bottom: 20px; }
+        code { background: #eef2f7; padding: 1px 5px; border-radius: 4px; }
+
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .card { background: white; padding: 18px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .card small { color: #64748b; }
+        .card strong { display: block; font-size: 22px; margin-top: 8px; }
+        .card .nota { display: block; font-size: 12px; color: #64748b; margin-top: 6px; line-height: 1.35; }
+
+        .graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .grafico { background: white; padding: 20px; border-radius: 10px; height: 350px; display: flex; flex-direction: column; box-sizing: border-box; }
+        .grafico h3 { margin: 0 0 10px; flex: 0 0 auto; }
+        .grafico-area { position: relative; flex: 1 1 auto; min-height: 0; }
+        .sem-dados { color: #64748b; font-size: 14px; margin: 0; }
+
+        .relatorios { background: white; padding: 20px; border-radius: 10px; margin-top: 25px; }
+        button { border: 0; border-radius: 6px; padding: 10px 14px; margin: 4px; cursor: pointer; background: #2563eb; color: white; font-weight: bold; }
+        button.secundario { background: #475569; }
+        button:hover { opacity: .9; }
+        input { padding: 10px; margin: 8px; }
+
+        .selo { display: inline-block; font-size: 11px; font-weight: bold; padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; letter-spacing: .04em; }
+        .selo-demo { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .selo-real { background: #dcfce7; color: #166534; border: 1px solid #22c55e; }
+        .selo-nd { background: #e2e8f0; color: #475569; border: 1px solid #94a3b8; }
+
+        .aviso { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; line-height: 1.5; border: 1px solid; border-left-width: 6px; }
+        .aviso-demo { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
+        .aviso-info { background: #f0fdf4; border-color: #22c55e; color: #14532d; }
+        .aviso-nd { background: #f1f5f9; border-color: #94a3b8; color: #334155; }
+        details { margin-top: 25px; background: white; border-radius: 10px; padding: 16px 20px; }
+        details li { margin: 6px 0; line-height: 1.45; }
+    </style>
+</head>
+
+<body>
+    <h1>StockBridge</h1>
+    <div class="subtitulo">Dashboard - Cousin Store</div>
+
+    <div id="bannerModo" class="aviso aviso-nd" role="status"></div>
+
+    <section class="relatorios" aria-labelledby="apiTitulo" style="margin-top:0; margin-bottom:25px">
+        <p style="margin-top:0"><a href="/#/painel">&larr; Voltar ao sistema</a></p>
+        <h2 id="apiTitulo" style="margin-top:0">Conexão com o servidor StockBridge</h2>
+        <p id="apiStatus" role="status">Verificando conexão com o servidor...</p>
+        <input id="apiBaseUrl" type="hidden" value="">
+        <button type="button" id="btnVerificarApi">Verificar conexão</button>
+        <p style="margin:0 8px; color:#64748b; font-size:13px">
+            Usa o login do sistema: entre no StockBridge antes de abrir esta página.
+            Os gráficos e a exportação para Excel usam bibliotecas da internet (Chart.js e SheetJS).
+        </p>
+        <hr>
+        <button type="button" id="btnCarregarMovimentos">Carregar histórico da API (GET /api/movements)</button>
+        <button type="button" id="btnDemo" class="secundario">Usar dados de demonstração</button>
+        <button type="button" id="btnLimpar" class="secundario">Limpar dados</button>
+        <p id="movStatus" role="status" style="margin:8px"></p>
+    </section>
+
+    <section class="cards">
+        <div class="card">
+            <small>Faturamento bruto</small><span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span>
+            <strong id="faturamento">—</strong>
+            <span class="nota">Σ saídas × preço</span>
+        </div>
+        <div class="card">
+            <small>Custo das entradas</small><span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span>
+            <strong id="custo">—</strong>
+            <span class="nota">Σ entradas × custo (não há lotes na API)</span>
+        </div>
+        <div class="card">
+            <small>Lucro bruto estimado</small><span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span>
+            <strong id="lucro">—</strong>
+            <span class="nota">Faturamento − custo das unidades vendidas. Sem impostos/tarifas: não é lucro líquido.</span>
+        </div>
+        <div class="card">
+            <small>ROI sobre custo vendido</small><span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span>
+            <strong id="roi">—</strong>
+            <span class="nota">Lucro bruto ÷ custo das unidades vendidas</span>
+        </div>
+        <div class="card">
+            <small>Itens em estoque (saldo)</small><span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span>
+            <strong id="estoque">—</strong>
+            <span class="nota">Σ entradas − Σ saídas do histórico</span>
+        </div>
+        <div class="card">
+            <small>Sincronização ML</small><span class="selo selo-nd">INDISPONÍVEL</span>
+            <strong id="sincronizacao">Indisponível</strong>
+            <span class="nota">A API não tem rota de status/taxa de sincronização com o Mercado Livre.</span>
+        </div>
+    </section>
+
+    <section class="relatorios" aria-labelledby="locTitulo" style="margin-top:0; margin-bottom:25px">
+        <h2 id="locTitulo" style="margin-top:0">Estoque por localização <span class="selo selo-nd" data-origem="loc" data-tipo="dado"></span></h2>
+        <p>Informe o UUID de uma localização (retornado ao cadastrá-la). A API devolve lista vazia tanto para localização sem produtos quanto para ID inexistente.</p>
+        <form id="formEstoqueLocalizacao">
+            <label for="locationId">ID da localização:</label>
+            <input id="locationId" name="locationId" required placeholder="UUID da localização" style="width:min(100%, 320px)">
+            <label for="capacidadeManual">Capacidade máxima (opcional):</label>
+            <input id="capacidadeManual" name="capacidadeManual" inputmode="numeric" placeholder="ex.: 100" style="width:110px">
+            <button type="submit">Consultar estoque</button>
+        </form>
+        <p style="margin:0 8px; color:#64748b; font-size:13px">A capacidade (<code>maxCapacity</code>) é gravada pela API ao criar a localização, mas nenhuma rota a devolve; por isso, se quiser ver a ocupação, informe-a manualmente. Cada consulta é acumulada no gráfico de ocupação.</p>
+        <p id="estoqueStatus" role="status"></p>
+        <div style="overflow-x:auto">
+            <table id="tabelaEstoqueApi" style="width:100%; border-collapse:collapse; text-align:left;">
+                <thead><tr><th style="padding:8px">ID do produto</th><th style="padding:8px">Produto</th><th style="padding:8px">SKU</th><th style="padding:8px">Quantidade</th></tr></thead>
+                <tbody id="corpoEstoqueApi"><tr><td colspan="4" style="padding:8px">Nenhuma consulta realizada.</td></tr></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="graficos">
+        <div class="grafico">
+            <h3>Faturamento por produto <span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span></h3>
+            <div class="grafico-area"><canvas id="graficoFaturamento"></canvas><p class="sem-dados" hidden></p></div>
+        </div>
+        <div class="grafico">
+            <h3>Lucro bruto estimado por produto <span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span></h3>
+            <div class="grafico-area"><canvas id="graficoLucro"></canvas><p class="sem-dados" hidden></p></div>
+        </div>
+        <div class="grafico">
+            <h3>ROI por produto <span class="selo selo-nd" data-origem="mov" data-tipo="calc"></span></h3>
+            <div class="grafico-area"><canvas id="graficoROI"></canvas><p class="sem-dados" hidden></p></div>
+        </div>
+        <div class="grafico">
+            <h3>Movimentações por dia (unidades) <span class="selo selo-nd" data-origem="mov" data-tipo="dado"></span></h3>
+            <div class="grafico-area"><canvas id="graficoMovimentos"></canvas><p class="sem-dados" hidden></p></div>
+        </div>
+        <div class="grafico">
+            <h3>Ocupação das estantes consultadas <span class="selo selo-nd" data-origem="loc" data-tipo="dado"></span></h3>
+            <div class="grafico-area"><canvas id="graficoEstoque"></canvas><p class="sem-dados" hidden></p></div>
+        </div>
+    </section>
+
+    <section class="relatorios">
+        <h2 style="margin-top:0">Relatórios</h2>
+        <p style="margin-top:0; color:#64748b">Os arquivos levam a coluna "Origem dos dados". Dados de demonstração saem com o prefixo <code>DEMO_</code>.</p>
+        <button onclick="StockBridgeReports.exportar('resumo','xlsx')">Resumo geral - Excel</button>
+        <button onclick="StockBridgeReports.exportar('produtos','xlsx')">Análise por produto - Excel</button>
+        <button onclick="StockBridgeReports.exportar('produtos','csv')">Análise por produto - CSV</button>
+        <button onclick="StockBridgeReports.exportar('movimentos','xlsx')">Histórico de movimentações - Excel</button>
+        <button onclick="StockBridgeReports.exportar('movimentos','csv')">Histórico de movimentações - CSV</button>
+        <button onclick="StockBridgeReports.exportar('localizacoes','xlsx')">Estoque por localização consultada - Excel</button>
+        <button onclick="StockBridgeReports.exportar('localizacoes','csv')">Estoque por localização consultada - CSV</button>
+        <button onclick="StockBridgeReports.exportarCompleto()">Relatório completo - Excel</button>
+    </section>
+
+    <details>
+        <summary><strong>Como os indicadores são calculados (premissas)</strong></summary>
+        <ul id="listaPremissas"></ul>
+    </details>
+    <details>
+        <summary><strong>O que a API ainda não oferece (limites)</strong></summary>
+        <ul id="listaLimites"></ul>
+    </details>
+
+    <script src="calculos.js"></script>
+    <script src="demo.js"></script>
+    <script src="api.js"></script>
+    <script src="chart.js"></script>
+    <script src="relatorios.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

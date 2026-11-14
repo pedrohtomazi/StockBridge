@@ -1,0 +1,5 @@
+# Quebra de linha padronizada no repositório (LF), qualquer que seja o sistema.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

@@ -1,0 +1,52 @@
+[package]
+name = "stockbridge"
+version = "0.2.0"
+edition = "2024"
+
+[[bin]]
+name = "StockBridge"
+path = "src/main.rs"
+
+[lib]
+name = "stockbridge"
+path = "src/lib.rs"
+
+[dependencies]
+axum = "0.8.9"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# Banco: SQLite (um arquivo, sem servidor de banco). Consultas checadas em tempo de execução,
+# então o projeto compila sem precisar de banco nenhum ligado.
+sqlx = { version = "0.9.0", default-features = false, features = ["sqlite", "runtime-tokio", "macros", "migrate", "derive"] }
+tokio = { version = "1.53.3", features = ["full"] }
+uuid = { version = "1.28.0", features = ["v4", "serde"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
+url = "2"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# ---- Segurança ----
+argon2 = "0.5"            # hash de senha (Argon2id)
+rand_core = { version = "0.6", features = ["getrandom"] }
+jsonwebtoken = "9"        # tokens JWT de login
+chacha20poly1305 = { version = "0.10", features = ["getrandom"] }  # cifra o secret e os tokens do Mercado Livre
+sha2 = "0.10"             # impressão digital do certificado
+base64 = "0.22"
+
+# ---- Rede local ----
+rcgen = "0.13"            # gera a autoridade certificadora local e o certificado HTTPS
+if-addrs = "0.13"         # descobre os IPs desta máquina (vão no certificado)
+rustls = "0.23"
+
+# ---- Telas embutidas no executável ----
+rust-embed = { version = "8", features = ["include-exclude", "mime-guess"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+strip = true
+lto = "thin"

@@ -1,0 +1,6 @@
+Fallback offline do Chart.js (opcional).
+Se a CDN estiver bloqueada ou sem internet, salve aqui o arquivo chart.umd.min.js (Chart.js 4.4.7):
+  https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js
+O index.html tenta vendor/chart.umd.min.js automaticamente quando a CDN falha.
+Sem esse arquivo e sem internet, os gráficos mostram um aviso em vez de ficarem em branco.
+(O SheetJS continua vindo da CDN; para uso offline, baixe-o de https://cdn.sheetjs.com e ajuste a tag <script>.)
